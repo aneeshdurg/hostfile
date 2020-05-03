@@ -9,7 +9,7 @@ homepage = "https://github.com/aneeshdurg/hostfile"
 repository = "https://github.com/aneeshdurg/hostfile"
 description = "A rust crate for parsing /etc/hosts"
 keywords = ["hosts", "networking", "linux"]
-categories = ["parser", "networking"]
+categories = ["parsing", "os"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
