@@ -172,7 +172,7 @@ mod tests {
     extern crate mktemp;
     use mktemp::Temp;
 
-    use std::io::Write;
+    use std::io::{Seek, SeekFrom, Write};
     use std::net::{Ipv4Addr, Ipv6Addr};
 
     use super::*;
@@ -302,37 +302,20 @@ mod tests {
         let temp_path = temp_file.as_path();
         let mut file = File::create(temp_path).unwrap();
 
-        write!(
-            file,
-            "\
-            127.0.0.1localhost\n\
-        "
-        )
-        .expect("Could not write to temp file");
+        write!(file, "127.0.0.1localhost\n").expect("");
         assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP"));
 
         file.set_len(0).expect("Could not truncate file");
-        write!(
-            file,
-            "\
-            127.0.0 localhost\n\
-        "
-        )
-        .expect("Could not write to temp file");
+        file.seek(SeekFrom::Start(0)).expect("");
+        write!(file, "127.0.0 localhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
             Err("Couldn't parse a valid IP address")
         );
 
-        file.set_len(0).expect("Could not truncate file");
-        write!(
-            file,
-            "\
-            127.0.0 local\n\
-            host\n\
-        "
-        )
-        .expect("Could not write to temp file");
+        file.set_len(0).expect("");
+        file.seek(SeekFrom::Start(0)).expect("");
+        write!(file, "127.0.0 local\nhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
             Err("Couldn't parse a valid IP address")
