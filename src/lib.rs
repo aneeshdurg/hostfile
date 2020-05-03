@@ -1,6 +1,6 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::net::IpAddr;
+use std::net::{AddrParseError, IpAddr};
 use std::path::Path;
 use std::str::FromStr;
 
@@ -29,45 +29,10 @@ use std::str::FromStr;
  *     Name ws* | Name ws+ Names
  */
 
-fn parse_ip(input: &str, start_idx: usize) -> Result<(IpAddr, usize), &'static str> {
-    let mut chars = input[start_idx..].chars();
-    let mut end_idx = start_idx;
-
-    loop {
-        let c = chars.next();
-        if c.is_none() {
-            break;
-        }
-
-        let c = c.unwrap();
-        if !c.is_digit(10) && c != '.' && !c.is_digit(16) && c != ':' {
-            break;
-        }
-
-        end_idx += 1;
-    }
-
-    let ip = input[start_idx..end_idx].parse::<IpAddr>();
-    if ip.is_err() {
-        return Err("Couldn't parse a valid IP address");
-    }
-    Ok((ip.unwrap(), end_idx))
-}
-
-fn discard_ws(input: &str, start_idx: usize) -> usize {
-    let mut chars = input[start_idx..].chars();
-    let mut end_idx = start_idx;
-
-    loop {
-        let c = chars.next();
-        if c.is_none() || !c.unwrap().is_whitespace() {
-            break;
-        }
-
-        end_idx += 1;
-    }
-
-    end_idx
+fn parse_ip(input: &str) -> Result<(IpAddr, &str), AddrParseError> {
+    let non_ip_char_idx = input.find(|c: char| c != '.' && c != ':' && !c.is_digit(16));
+    let (ip, remainder) = input.split_at(non_ip_char_idx.unwrap_or(input.len()));
+    Ok((ip.parse()?, remainder))
 }
 
 /// A struct representing a line from /etc/hosts that has a host on it
@@ -81,31 +46,32 @@ impl FromStr for HostEntry {
     type Err = &'static str;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut pos = discard_ws(s, 0);
+        let mut input = s;
+        input = input.trim_start();
 
-        let ip = parse_ip(s, pos);
-        if let Err(msg) = ip {
-            return Err(msg);
+        let ip = parse_ip(input);
+        if let Err(_) = ip {
+            return Err("Couldn't parse a valid IP address");
         }
         let ip = ip.unwrap();
-        pos = ip.1;
+        input = ip.1;
         let ip = ip.0;
 
-        let newpos = discard_ws(s, pos);
-        if newpos == pos {
-            return Err("Expected whitespace after IP");
+        match input.chars().next() {
+            Some(' ') => {},
+            _ => {
+                return Err("Expected whitespace after IP");
+            }
         }
-        pos = newpos;
+        input = input.trim_start();
 
         let mut names = Vec::new();
-        for name in s[pos..].split_whitespace() {
+        for name in input.split_whitespace() {
             // Account for comments at the end of the line
-            if let Some(c) = name.chars().next() {
-                if c == '#' {
-                    break;
-                }
-            } else {
-                continue;
+            match name.chars().next() {
+                Some('#') => break,
+                Some(_) => {},
+                None => unreachable!(),
             }
             names.push(name.to_string());
         }
@@ -133,30 +99,19 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, &'static str> {
         if let Err(_) = line {
             return Err("Error reading file");
         }
+
         let line = line.unwrap();
-
-        let start = discard_ws(&line, 0);
-        let entryline = &line[start..];
-        match entryline.chars().next() {
-            Some(c) => {
-                if c == '#' {
-                    continue;
-                }
-            }
+        let line = line.trim_start();
+        match line.chars().next() {
+            // comment
+            Some('#') => continue,
             // empty line
-            None => {
-                continue;
-            }
+            None => continue,
+            // valid line
+            Some(_) => {},
         };
 
-        match entryline.parse() {
-            Ok(entry) => {
-                entries.push(entry);
-            }
-            Err(msg) => {
-                return Err(msg);
-            }
-        };
+        entries.push(line.parse()?);
     }
 
     Ok(entries)
@@ -181,8 +136,8 @@ mod tests {
     fn parse_ipv4() {
         let input = "127.0.0.1";
         assert_eq!(
-            parse_ip(input, 0),
-            Ok((IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 9))
+            parse_ip(input),
+            Ok((IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), ""))
         );
     }
 
@@ -190,17 +145,9 @@ mod tests {
     fn parse_ipv6() {
         let input = "::1";
         assert_eq!(
-            parse_ip(input, 0),
-            Ok((IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), 3))
+            parse_ip(input),
+            Ok((IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), ""))
         );
-    }
-
-    #[test]
-    fn test_discard_ws() {
-        assert_eq!(discard_ws("    asdf", 0), 4);
-        assert_eq!(discard_ws("    ", 0), 4);
-        assert_eq!(discard_ws(".", 0), 0);
-        assert_eq!(discard_ws("", 0), 0);
     }
 
     #[test]
