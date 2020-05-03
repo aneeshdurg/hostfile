@@ -73,8 +73,8 @@ fn discard_ws(input: &str, start_idx: usize) -> usize {
 /// A struct representing a line from /etc/hosts that has a host on it
 #[derive(Debug, PartialEq)]
 pub struct HostEntry {
-    ip: IpAddr,
-    names: Vec<String>,
+    pub ip: IpAddr,
+    pub names: Vec<String>,
 }
 
 impl FromStr for HostEntry {
