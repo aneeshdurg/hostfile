@@ -1,0 +1,13 @@
+[package]
+name = "hostfile"
+version = "0.1.0"
+authors = ["Aneesh Durg <aneeshdurg17@gmail.com>"]
+edition = "2018"
+license = "MIT"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+[dev-dependencies]
+mktemp = "0.4.0"
