@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Aneesh Durg <aneeshdurg17@gmail.com>"]
 edition = "2018"
 license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/aneeshdurg/hostfile"
+repository = "https://github.com/aneeshdurg/hostfile"
+description = "A rust crate for parsing /etc/hosts"
+keywords = ["hosts", "networking", "linux"]
+categories = ["parser", "networking"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
