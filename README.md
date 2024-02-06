@@ -4,3 +4,17 @@
 [![Docs](https://docs.rs/hostfile/badge.svg)](https://docs.rs/hostfile)
 
 A rust crate for parsing /etc/hosts
+
++ published on [crates.io](https://crates.io/crates/hostfile)
+
+# Installation
+
+```bash
+cargo add hostfile
+```
+
+or add the following to your `Cargo.toml`
+
+```
+hostfile = "0.3.0"
+```
