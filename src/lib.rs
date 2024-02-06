@@ -208,7 +208,7 @@ mod tests {
             127.0.0.1       localhost\n\
             ::1             localhost\n\
             255.255.255.255 broadcast\n\
-
+            \n\
             # Comments can really be anywhere\n\
             bad:dad::ded    multiple hostnames for address\n\
         "
