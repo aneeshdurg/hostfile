@@ -36,7 +36,7 @@ fn parse_ip(input: &str) -> Result<(IpAddr, &str), AddrParseError> {
 }
 
 /// A struct representing a line from /etc/hosts that has a host on it
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct HostEntry {
     pub ip: IpAddr,
     pub names: Vec<String>,
@@ -274,5 +274,14 @@ mod tests {
             parse_file(&temp_dir_path),
             Err("File does not exist or is not a regular file")
         );
+    }
+    #[test]
+    fn test_clone() {
+        let host_entry = HostEntry {
+            ip: IpAddr::V4(Ipv4Addr::new(192, 168, 42, 42)),
+            names: vec![String::from("comp1"), String::from("computer1")],
+        };
+        let cloned = host_entry.clone();
+        assert_eq!(host_entry, cloned)
     }
 }
