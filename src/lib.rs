@@ -43,15 +43,15 @@ pub struct HostEntry {
 }
 
 impl FromStr for HostEntry {
-    type Err = &'static str;
+    type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut input = s;
         input = input.trim_start();
 
         let ip = parse_ip(input);
-        if let Err(_) = ip {
-            return Err("Couldn't parse a valid IP address");
+        if let Err(err) = ip {
+            return Err(format!("Couldn't parse a valid IP address: {err}; Line with error: '{s}'"));
         }
         let ip = ip.unwrap();
         input = ip.1;
@@ -60,7 +60,7 @@ impl FromStr for HostEntry {
         match input.chars().next() {
             Some(' ') => {},
             _ => {
-                return Err("Expected whitespace after IP");
+                return Err(format!("Expected whitespace after IP; Line with error: '{s}'"));
             }
         }
         input = input.trim_start();
@@ -81,14 +81,14 @@ impl FromStr for HostEntry {
 }
 
 /// Parse a file using the format described in `man hosts(7)`
-pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, &'static str> {
+pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
     if !path.exists() || !path.is_file() {
-        return Err("File does not exist or is not a regular file");
+        return Err(format!("File ({:?}) does not exist or is not a regular file", path));
     }
 
     let file = File::open(path);
     if file.is_err() {
-        return Err("Could not open file");
+        return Err(format!("Could not open file ({:?})", path));
     }
     let file = file.unwrap();
 
@@ -96,8 +96,8 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, &'static str> {
 
     let lines = BufReader::new(file).lines();
     for line in lines {
-        if let Err(_) = line {
-            return Err("Error reading file");
+        if let Err(err) = line {
+            return Err(format!("Error reading file: {err}"));
         }
 
         let line = line.unwrap();
@@ -118,7 +118,7 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, &'static str> {
 }
 
 /// Parse /etc/hosts
-pub fn parse_hostfile() -> Result<Vec<HostEntry>, &'static str> {
+pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
     parse_file(&Path::new("/etc/hosts"))
 }
 
@@ -250,14 +250,14 @@ mod tests {
         let mut file = File::create(temp_path).unwrap();
 
         write!(file, "127.0.0.1localhost\n").expect("");
-        assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP"));
+        assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP; Line with error: '127.0.0.1localhost'".to_string()));
 
         file.set_len(0).expect("Could not truncate file");
         file.seek(SeekFrom::Start(0)).expect("");
         write!(file, "127.0.0 localhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
-            Err("Couldn't parse a valid IP address")
+            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: '127.0.0 localhost'".to_string())
         );
 
         file.set_len(0).expect("");
@@ -265,14 +265,22 @@ mod tests {
         write!(file, "127.0.0 local\nhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
-            Err("Couldn't parse a valid IP address")
+            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: '127.0.0 local'".to_string())
+        );
+
+        file.set_len(0).expect("");
+        file.seek(SeekFrom::Start(0)).expect("");
+        write!(file, "127.0.0.1 localhost\nlocalhost myhost").expect("");
+        assert_eq!(
+            parse_file(&temp_path),
+            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: 'localhost myhost'".to_string())
         );
 
         let temp_dir = Temp::new_dir().unwrap();
         let temp_dir_path = temp_dir.as_path();
         assert_eq!(
             parse_file(&temp_dir_path),
-            Err("File does not exist or is not a regular file")
+            Err(format!("File ({:?}) does not exist or is not a regular file", temp_dir_path))
         );
     }
     #[test]
