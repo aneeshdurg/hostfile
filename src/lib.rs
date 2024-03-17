@@ -51,7 +51,7 @@ impl FromStr for HostEntry {
 
         let ip = parse_ip(input);
         if let Err(err) = ip {
-            return Err(format!("Couldn't parse a valid IP address: {err}; Line with error: '{s}'"));
+            return Err(format!("Couldn't parse a valid IP address: {err}"));
         }
         let ip = ip.unwrap();
         input = ip.1;
@@ -60,7 +60,7 @@ impl FromStr for HostEntry {
         match input.chars().next() {
             Some(' ') => {},
             _ => {
-                return Err(format!("Expected whitespace after IP; Line with error: '{s}'"));
+                return Err("Expected whitespace after IP".to_string());
             }
         }
         input = input.trim_start();
@@ -95,9 +95,10 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
     let mut entries = Vec::new();
 
     let lines = BufReader::new(file).lines();
+    let mut line_count = 1;
     for line in lines {
         if let Err(err) = line {
-            return Err(format!("Error reading file: {err}"));
+            return Err(format!("Error reading file at line {line_count}: {err}"));
         }
 
         let line = line.unwrap();
@@ -110,8 +111,11 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
             // valid line
             Some(_) => {},
         };
-
-        entries.push(line.parse()?);
+        match line.parse() {
+            Ok(parsed_host_entry) => entries.push(parsed_host_entry),
+            Err(err) => { return Err(format!("{err} at line {line_count} with content: '{line}'")); }
+        }
+        line_count+= 1;
     }
 
     Ok(entries)
@@ -250,14 +254,14 @@ mod tests {
         let mut file = File::create(temp_path).unwrap();
 
         write!(file, "127.0.0.1localhost\n").expect("");
-        assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP; Line with error: '127.0.0.1localhost'".to_string()));
+        assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP at line 1 with content: '127.0.0.1localhost'".to_string()));
 
         file.set_len(0).expect("Could not truncate file");
         file.seek(SeekFrom::Start(0)).expect("");
         write!(file, "127.0.0 localhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
-            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: '127.0.0 localhost'".to_string())
+            Err("Couldn't parse a valid IP address: invalid IP address syntax at line 1 with content: '127.0.0 localhost'".to_string())
         );
 
         file.set_len(0).expect("");
@@ -265,7 +269,7 @@ mod tests {
         write!(file, "127.0.0 local\nhost\n").expect("");
         assert_eq!(
             parse_file(&temp_path),
-            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: '127.0.0 local'".to_string())
+            Err("Couldn't parse a valid IP address: invalid IP address syntax at line 1 with content: '127.0.0 local'".to_string())
         );
 
         file.set_len(0).expect("");
@@ -273,7 +277,7 @@ mod tests {
         write!(file, "127.0.0.1 localhost\nlocalhost myhost").expect("");
         assert_eq!(
             parse_file(&temp_path),
-            Err("Couldn't parse a valid IP address: invalid IP address syntax; Line with error: 'localhost myhost'".to_string())
+            Err("Couldn't parse a valid IP address: invalid IP address syntax at line 2 with content: 'localhost myhost'".to_string())
         );
 
         let temp_dir = Temp::new_dir().unwrap();
