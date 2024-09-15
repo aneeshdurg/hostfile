@@ -70,7 +70,7 @@ impl FromStr for HostEntry {
             // Account for comments at the end of the line
             match name.chars().next() {
                 Some('#') => break,
-                Some(_) => {},
+                Some(_) => {}
                 None => unreachable!(),
             }
             names.push(name.to_string());
@@ -83,7 +83,10 @@ impl FromStr for HostEntry {
 /// Parse a file using the format described in `man hosts(7)`
 pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
     if !path.exists() || !path.is_file() {
-        return Err(format!("File ({:?}) does not exist or is not a regular file", path));
+        return Err(format!(
+            "File ({:?}) does not exist or is not a regular file",
+            path
+        ));
     }
 
     let file = File::open(path);
@@ -109,13 +112,15 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
             // empty line
             None => continue,
             // valid line
-            Some(_) => {},
+            Some(_) => {}
         };
         match line.parse() {
             Ok(parsed_host_entry) => entries.push(parsed_host_entry),
-            Err(err) => { return Err(format!("{err} at line {line_count} with content: '{line}'")); }
+            Err(err) => {
+                return Err(format!("{err} at line {line_count} with content: '{line}'"));
+            }
         }
-        line_count+= 1;
+        line_count += 1;
     }
 
     Ok(entries)
@@ -279,7 +284,13 @@ mod tests {
         let mut file = File::create(temp_path).unwrap();
 
         write!(file, "127.0.0.1localhost\n").expect("");
-        assert_eq!(parse_file(&temp_path), Err("Expected whitespace after IP at line 1 with content: '127.0.0.1localhost'".to_string()));
+        assert_eq!(
+            parse_file(&temp_path),
+            Err(
+                "Expected whitespace after IP at line 1 with content: '127.0.0.1localhost'"
+                    .to_string()
+            )
+        );
 
         file.set_len(0).expect("Could not truncate file");
         file.seek(SeekFrom::Start(0)).expect("");
@@ -309,7 +320,10 @@ mod tests {
         let temp_dir_path = temp_dir.as_path();
         assert_eq!(
             parse_file(&temp_dir_path),
-            Err(format!("File ({:?}) does not exist or is not a regular file", temp_dir_path))
+            Err(format!(
+                "File ({:?}) does not exist or is not a regular file",
+                temp_dir_path
+            ))
         );
     }
     #[test]
