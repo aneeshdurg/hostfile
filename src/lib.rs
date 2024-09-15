@@ -215,6 +215,11 @@ mod tests {
             \n\
             # Comments can really be anywhere\n\
             bad:dad::ded    multiple hostnames for address\n\
+            1.1.1.1\ttabSeperatedHostname\n\
+            1.1.1.2\t tabAndSpaceSeparatedHostName\n\
+            \t1.1.1.3\t\t\tlineStartsWithTab\n\
+              1.1.1.4 lineStartsWithSpace\n\
+            1.1.1.5 skip_blank_line
         "
         )
         .expect("Could not write to temp file");
@@ -242,6 +247,26 @@ mod tests {
                         String::from("for"),
                         String::from("address")
                     ),
+                },
+                HostEntry {
+                    ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                    names: vec!(String::from("tabSeperatedHostname")),
+                },
+                HostEntry {
+                    ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 2)),
+                    names: vec!(String::from("tabAndSpaceSeparatedHostName")),
+                },
+                HostEntry {
+                    ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 3)),
+                    names: vec!(String::from("lineStartsWithTab")),
+                },
+                HostEntry {
+                    ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 4)),
+                    names: vec!(String::from("lineStartsWithSpace")),
+                },
+                HostEntry {
+                    ip: IpAddr::V4(Ipv4Addr::new(1, 1, 1, 5)),
+                    names: vec!(String::from("skip_blank_line")),
                 },
             ))
         );
