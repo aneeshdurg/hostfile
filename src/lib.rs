@@ -58,7 +58,7 @@ impl FromStr for HostEntry {
         let ip = ip.0;
 
         match input.chars().next() {
-            Some(' ') => {},
+            Some(' ') | Some('\t') => {}
             _ => {
                 return Err("Expected whitespace after IP".to_string());
             }
