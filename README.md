@@ -16,5 +16,5 @@ cargo add hostfile
 or add the following to your `Cargo.toml`
 
 ```
-hostfile = "0.3.0"
+hostfile = "1.0.0"
 ```
