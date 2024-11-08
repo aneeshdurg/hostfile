@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::{AddrParseError, IpAddr};
-use std::path::Path;
+use std::path::{PathBuf, Path};
 use std::str::FromStr;
 
 /**
@@ -131,14 +131,14 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
 /// - `/etc/hosts` on Unix.
 /// - `C:\Windows\system32\drivers\etc\hosts` on Windows.
 pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
-    parse_file(get_hostfile_path())
+    parse_file(&get_hostfile_path()?)
 }
 
 /// Get path to the system hostfile.
-pub fn get_hostfile_path<'a>() -> &'a Path {
+pub fn get_hostfile_path() -> Result<PathBuf, String> {
     #[cfg(not(windows))]
     {
-        Path::new("/etc/hosts")
+        Ok(PathBuf::from("/etc/hosts"))
     }
 
     #[cfg(windows)]
@@ -172,9 +172,11 @@ pub fn get_hostfile_path<'a>() -> &'a Path {
         match ret {
             S_OK => {
                 let path_slice = unsafe { slice::from_raw_parts(ptr, wcslen(ptr)) };
-                let os_str: OsString = OsString::from_wide(path_slice);
+                let os_str = OsString::from_wide(path_slice);
                 unsafe { CoTaskMemFree(ptr.cast()) };
-                Path::new(&os_str.into_string().unwrap()).join("drivers\\etc\\hosts")
+                let mut pathbuf = PathBuf::from(&os_str);
+                pathbuf.push("drivers\\etc\\hosts");
+                Ok(pathbuf)
             }
             _ => {
                 // free any allocated memory even on failure (a null ptr is a no-op for `CoTaskMemFree`)
@@ -396,7 +398,9 @@ mod tests {
 
     #[test]
     fn test_get_hostfile_path() {
-        assert!(get_hostfile_path().exists());
+        let maybe_path = get_hostfile_path();
+        assert!(maybe_path.is_ok());
+        assert!(maybe_path.unwrap().exists());
     }
 
     // The next test only runs on GitHub Actions.
