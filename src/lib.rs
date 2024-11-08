@@ -134,7 +134,8 @@ pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
     parse_file(get_hostfile_path())
 }
 
-fn get_hostfile_path<'a>() -> &'a Path {
+/// Get path to the system hostfile.
+pub fn get_hostfile_path<'a>() -> &'a Path {
     #[cfg(not(windows))]
     {
         Path::new("/etc/hosts")
