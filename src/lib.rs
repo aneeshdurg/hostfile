@@ -398,9 +398,9 @@ mod tests {
         let hostfile = maybe_hostfile.unwrap();
         assert!(!hostfile.is_empty());
 
-        #[cfg(not(windows))]
-        {
-            // Unix systems *tipically* include localhost in /etc/hosts.
+        if cfg!(not(windows)) && std::env::var("GITHUB_ACTIONS").is_ok() {
+            // Unix systems *typically* include localhost in /etc/hosts,
+            // but we only assume that for GitHub Actions hostfile.
             //
             // In GitHub Actions, the Windows runnner includes an entry like
             // "10.1.0.85 <long-whatever>.cloudapp.net", localhost is commented.
