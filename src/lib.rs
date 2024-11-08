@@ -131,9 +131,13 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
 /// - `/etc/hosts` on Unix.
 /// - `C:\Windows\system32\drivers\etc\hosts` on Windows.
 pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
+    parse_file(get_hostfile_path())
+}
+
+fn get_hostfile_path<'a>() -> &'a Path {
     #[cfg(not(windows))]
     {
-        parse_file(&Path::new("/etc/hosts"))
+        Path::new("/etc/hosts")
     }
 
     #[cfg(windows)]
@@ -169,9 +173,7 @@ pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
                 let path_slice = unsafe { slice::from_raw_parts(ptr, wcslen(ptr)) };
                 let os_str: OsString = OsString::from_wide(path_slice);
                 unsafe { CoTaskMemFree(ptr.cast()) };
-                let path = Path::new(&os_str.into_string().unwrap()).join("drivers\\etc\\hosts");
-                let content = std::fs::read_to_string(&path);
-                parse_file(&path)
+                Path::new(&os_str.into_string().unwrap()).join("drivers\\etc\\hosts")
             }
             _ => {
                 // free any allocated memory even on failure (a null ptr is a no-op for `CoTaskMemFree`)
@@ -392,22 +394,28 @@ mod tests {
     }
 
     #[test]
+    fn test_get_hostfile_path() {
+        assert!(get_hostfile_path().exists());
+    }
+
+    // The next test only runs on GitHub Actions.
+    //
+    // Unix systems *typically* include localhost in /etc/hosts,
+    // but we only assume that for GitHub Actions hostfile.
+    //
+    // In GitHub Actions, the Windows runnner includes an entry like
+    // "10.1.0.85 <long-whatever>.cloudapp.net", localhost is commented.
+    #[test_with::env(GITHUB_ACTIONS)]
+    #[test]
     fn test_parse_hostfile() {
         let maybe_hostfile = parse_hostfile();
         assert!(maybe_hostfile.is_ok());
         let hostfile = maybe_hostfile.unwrap();
         assert!(!hostfile.is_empty());
 
-        if cfg!(not(windows)) && std::env::var("GITHUB_ACTIONS").is_ok() {
-            // Unix systems *typically* include localhost in /etc/hosts,
-            // but we only assume that for GitHub Actions hostfile.
-            //
-            // In GitHub Actions, the Windows runnner includes an entry like
-            // "10.1.0.85 <long-whatever>.cloudapp.net", localhost is commented.
-            let localhost = hostfile
-                .iter()
-                .find(|entry| entry.names.contains(&String::from("localhost")));
-            assert!(localhost.is_some());
-        }
+        let localhost = hostfile
+            .iter()
+            .find(|entry| entry.names.contains(&String::from("localhost")));
+        assert!(localhost.is_some());
     }
 }
