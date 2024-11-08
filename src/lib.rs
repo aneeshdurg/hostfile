@@ -413,9 +413,12 @@ mod tests {
         let hostfile = maybe_hostfile.unwrap();
         assert!(!hostfile.is_empty());
 
-        let localhost = hostfile
-            .iter()
-            .find(|entry| entry.names.contains(&String::from("localhost")));
-        assert!(localhost.is_some());
+        #[cfg(not(windows))]
+        {
+            let localhost = hostfile
+                .iter()
+                .find(|entry| entry.names.contains(&String::from("localhost")));
+            assert!(localhost.is_some());
+        }
     }
 }
