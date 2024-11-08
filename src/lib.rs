@@ -126,9 +126,63 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
     Ok(entries)
 }
 
-/// Parse /etc/hosts
+/// Parse system hostfile.
+///
+/// - `/etc/hosts` on Unix.
+/// - `C:\Windows\system32\drivers\etc\hosts` on Windows.
 pub fn parse_hostfile() -> Result<Vec<HostEntry>, String> {
-    parse_file(&Path::new("/etc/hosts"))
+    #[cfg(not(windows))]
+    {
+        parse_file(&Path::new("/etc/hosts"))
+    }
+
+    #[cfg(windows)]
+    {
+        // Implementation adapted from cargo's `home`.
+        // See https://crates.io/crates/home
+        use std::ffi::OsString;
+        use std::os::windows::ffi::OsStringExt;
+        use std::ptr::null_mut;
+        use std::slice;
+        use windows_sys::Win32::{
+            Foundation::S_OK,
+            System::Com::CoTaskMemFree,
+            UI::Shell::{FOLDERID_System, SHGetKnownFolderPath, KF_FLAG_DONT_VERIFY},
+        };
+
+        extern "C" {
+            fn wcslen(buf: *const u16) -> usize;
+        }
+
+        let mut ptr = null_mut::<u16>();
+        let ret = unsafe {
+            SHGetKnownFolderPath(
+                &FOLDERID_System,
+                KF_FLAG_DONT_VERIFY as u32,
+                null_mut(),
+                &mut ptr,
+            )
+        };
+
+        match ret {
+            S_OK => {
+                let path_slice = unsafe { slice::from_raw_parts(ptr, wcslen(ptr)) };
+                let os_str: OsString = OsString::from_wide(path_slice);
+                unsafe { CoTaskMemFree(ptr.cast()) };
+                let path = Path::new(&os_str.into_string().unwrap()).join("drivers\\etc\\hosts");
+                let content = std::fs::read_to_string(&path);
+                parse_file(&path)
+            }
+            _ => {
+                // free any allocated memory even on failure (a null ptr is a no-op for `CoTaskMemFree`)
+                unsafe { CoTaskMemFree(ptr.cast()) };
+                Err(format!(
+                    "Could not get path to Windows hosts file: {}",
+                    std::io::Error::last_os_error(),
+                ))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -326,6 +380,7 @@ mod tests {
             ))
         );
     }
+
     #[test]
     fn test_clone() {
         let host_entry = HostEntry {
@@ -334,5 +389,25 @@ mod tests {
         };
         let cloned = host_entry.clone();
         assert_eq!(host_entry, cloned)
+    }
+
+    #[test]
+    fn test_parse_hostfile() {
+        let maybe_hostfile = parse_hostfile();
+        assert!(maybe_hostfile.is_ok());
+        let hostfile = maybe_hostfile.unwrap();
+        assert!(!hostfile.is_empty());
+
+        #[cfg(not(windows))]
+        {
+            // Unix systems *tipically* include localhost in /etc/hosts.
+            //
+            // In GitHub Actions, the Windows runnner includes an entry like
+            // "10.1.0.85 <long-whatever>.cloudapp.net", localhost is commented.
+            let localhost = hostfile
+                .iter()
+                .find(|entry| entry.names.contains(&String::from("localhost")));
+            assert!(localhost.is_some());
+        }
     }
 }
