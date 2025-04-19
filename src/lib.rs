@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Read, Seek, SeekFrom};
 use std::net::{AddrParseError, IpAddr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -86,7 +86,20 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
         ));
     }
 
-    let file = File::open(path).map_err(|_x| format!("Could not open file ({:?})", path))?;
+    let mut file = File::open(path).map_err(|_x| format!("Could not open file ({:?})", path))?;
+    let mut buf = vec![0; 3];
+    let n = file
+        .read(&mut buf)
+        .map_err(|err| format!("Reading header failed {}", err))?;
+    if n == 3 {
+        // The file is at least 3 bytes, check if the file begins with a UTF-8 BOM. If not, reset
+        // the file's position.
+        if &buf != b"\xef\xbb\xbf" {
+            file.seek(SeekFrom::Start(0))
+                .map_err(|err| format!("Seek failed {}", err))?;
+        }
+    }
+
     let mut entries = Vec::new();
 
     let lines = BufReader::new(file).lines();
@@ -322,6 +335,16 @@ mod tests {
                 },
             ))
         );
+    }
+
+    #[test]
+    fn test_parse_file_with_bom() {
+        let temp_file = Temp::new_file().unwrap();
+        let temp_path = temp_file.as_path();
+        let mut file = File::create(temp_path).unwrap();
+        file.write_all(b"\xef\xbb\xbf\n127.0.0.1       localhost\n")
+            .expect("Could not write to temp file");
+        parse_file(&temp_path).unwrap();
     }
 
     #[test]
