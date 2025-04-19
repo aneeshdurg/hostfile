@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::net::{AddrParseError, IpAddr};
-use std::path::{PathBuf, Path};
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 /**
@@ -49,11 +49,8 @@ impl FromStr for HostEntry {
         let mut input = s;
         input = input.trim_start();
 
-        let ip = parse_ip(input);
-        if let Err(err) = ip {
-            return Err(format!("Couldn't parse a valid IP address: {err}"));
-        }
-        let ip = ip.unwrap();
+        let ip =
+            parse_ip(input).map_err(|err| format!("Couldn't parse a valid IP address: {err}"))?;
         input = ip.1;
         let ip = ip.0;
 
@@ -89,22 +86,13 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
         ));
     }
 
-    let file = File::open(path);
-    if file.is_err() {
-        return Err(format!("Could not open file ({:?})", path));
-    }
-    let file = file.unwrap();
-
+    let file = File::open(path).map_err(|_x| format!("Could not open file ({:?})", path))?;
     let mut entries = Vec::new();
 
     let lines = BufReader::new(file).lines();
     let mut line_count = 1;
     for line in lines {
-        if let Err(err) = line {
-            return Err(format!("Error reading file at line {line_count}: {err}"));
-        }
-
-        let line = line.unwrap();
+        let line = line.map_err(|err| format!("Error reading file at line {line_count}: {err}"))?;
         let line = line.trim_start();
         match line.chars().next() {
             // comment
@@ -112,15 +100,15 @@ pub fn parse_file(path: &Path) -> Result<Vec<HostEntry>, String> {
             // empty line
             None => continue,
             // valid line
-            Some(_) => {}
-        };
-        match line.parse() {
-            Ok(parsed_host_entry) => entries.push(parsed_host_entry),
-            Err(err) => {
-                return Err(format!("{err} at line {line_count} with content: '{line}'"));
+            Some(_) => {
+                entries.push(
+                    line.parse().map_err(|err| {
+                        format!("{err} at line {line_count} with content: '{line}'")
+                    })?,
+                );
+                line_count += 1;
             }
         }
-        line_count += 1;
     }
 
     Ok(entries)
